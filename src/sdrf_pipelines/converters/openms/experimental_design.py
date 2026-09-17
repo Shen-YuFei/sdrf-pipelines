@@ -20,30 +20,20 @@ class FractionGroupTracker:
     """Tracks fraction group assignments for files."""
 
     fraction_groups: dict[str, int] = field(default_factory=dict)
-    raw_frac: dict[int, list[str]] = field(default_factory=dict)
-    pre_frac_group: int = 1
+    group_ids: dict[int, int] = field(default_factory=dict)
+    next_id: int = 1
 
     def get_fraction_group(self, raw: str, fraction_group: int) -> int:
-        """Get or assign a fraction group for a raw file."""
-        if fraction_group not in self.raw_frac:
-            self.raw_frac[fraction_group] = [raw]
-            self._assign_new_fraction_group(raw, fraction_group)
-        else:
-            self.raw_frac[fraction_group].append(raw)
-            self.fraction_groups[raw] = self.fraction_groups[self.raw_frac[fraction_group][0]]
+        """Map source/replicate groups to contiguous IDs in order of first appearance."""
+        if fraction_group not in self.group_ids:
+            # Channels of a multiplexed file share its existing group. Otherwise,
+            # allocate a fresh ID; gaps or out-of-order input IDs must not collide.
+            if raw not in self.fraction_groups:
+                self.fraction_groups[raw] = self.next_id
+                self.next_id += 1
+            self.group_ids[fraction_group] = self.fraction_groups[raw]
+        self.fraction_groups[raw] = self.group_ids[fraction_group]
         return self.fraction_groups[raw]
-
-    def _assign_new_fraction_group(self, raw: str, fraction_group: int) -> None:
-        """Assign a new fraction group, handling gaps in numbering."""
-        if raw in self.fraction_groups:
-            if fraction_group < self.fraction_groups[raw]:
-                self.fraction_groups[raw] = fraction_group
-        else:
-            self.fraction_groups[raw] = fraction_group
-
-        if self.fraction_groups[raw] > self.pre_frac_group + 1:
-            self.fraction_groups[raw] = self.pre_frac_group + 1
-        self.pre_frac_group = self.fraction_groups[raw]
 
 
 @dataclass
