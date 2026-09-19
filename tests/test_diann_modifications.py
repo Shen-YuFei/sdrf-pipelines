@@ -33,6 +33,36 @@ class TestDiannModificationConverter:
         result = converter.convert_modification("NT=TMT6plex;TA=K;MT=fixed;AC=UNIMOD:737", is_fixed=True)
         assert result == "TMT6plex,229.162932,K,label"
 
+    @pytest.mark.parametrize("is_fixed", [True, False])
+    @pytest.mark.parametrize(
+        "modification",
+        [
+            "NT=Gln->pyro-Glu;AC=UNIMOD:28;TA=Q;PP=Any N-term",
+            "NT=Ammonia-loss;AC=UNIMOD:385;TA=C;PP=Any N-term",
+            "NT=Acetyl;AC=UNIMOD:1;TA=K;PP=Protein N-term",
+        ],
+    )
+    def test_residue_specific_terminus_is_not_silently_broadened(self, modification, is_fixed):
+        with pytest.raises(ValueError, match="DIA-NN cannot represent a residue-specific terminal modification"):
+            DiannModificationConverter().convert_modification(modification, is_fixed=is_fixed)
+
+    def test_merging_does_not_discard_terminal_restriction(self):
+        with pytest.raises(ValueError, match="residue-specific terminal modification"):
+            DiannModificationConverter().convert_all_modifications(
+                [],
+                [
+                    "NT=Ammonia-loss;AC=UNIMOD:385;TA=N;MT=Variable",
+                    "NT=Ammonia-loss;AC=UNIMOD:385;TA=C;MT=Variable;PP=Any N-term",
+                ],
+            )
+
+    @pytest.mark.parametrize("target,position", [("N-term", "Protein N-term"), ("Protein N-term", "Any N-term")])
+    def test_protein_terminal_restriction_is_retained(self, target, position):
+        result = DiannModificationConverter().convert_modification(
+            f"NT=Acetyl;AC=UNIMOD:1;TA={target};PP={position};MT=Variable", is_fixed=False
+        )
+        assert result == "Acetyl,42.010565,*n"
+
     def test_label_mod_itraq_gets_label_suffix(self):
         converter = DiannModificationConverter()
         result = converter.convert_modification("NT=iTRAQ4plex;TA=K;MT=fixed;AC=UNIMOD:214", is_fixed=True)

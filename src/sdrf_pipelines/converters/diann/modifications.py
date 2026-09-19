@@ -148,6 +148,26 @@ class DiannModificationConverter:
         ta_match = re.search(r"TA=(.+?)(;|$)", mod_string)
         pp_match = re.search(r"PP=(.+?)(;|$)", mod_string)
 
+        if ta_match and pp_match:
+            position = pp_match.group(1).strip()
+            targets = [part.strip() for part in ta_match.group(1).split(",") if part.strip()]
+            if position in _TERMINAL_SITE_MAP:
+                # DIA-NN's nQ means N-terminus OR Q, not N-terminal Q.
+                # See https://github.com/vdemichev/DiaNN/discussions/1952.
+                if any(target not in _TERMINAL_SITE_MAP for target in targets):
+                    raise ValueError(
+                        "DIA-NN cannot represent a residue-specific terminal modification "
+                        f"(TA={ta_match.group(1)};PP={position}): {mod_string}. "
+                        "Dropping PP= or combining terminal and residue tokens would broaden the search space."
+                    )
+                target_ends = {_TERMINAL_SITE_MAP[target][-1] for target in targets}
+                if target_ends != {_TERMINAL_SITE_MAP[position][-1]}:
+                    raise ValueError(f"Conflicting target and terminal position in: {mod_string}")
+                terminal = _TERMINAL_SITE_MAP[position]
+                if len(targets) == 1 and _TERMINAL_SITE_MAP[targets[0]].startswith("*"):
+                    terminal = _TERMINAL_SITE_MAP[targets[0]]
+                return [terminal]
+
         if ta_match:
             raw = ta_match.group(1)
         elif pp_match:
