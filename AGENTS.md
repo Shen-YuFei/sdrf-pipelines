@@ -23,7 +23,7 @@ uv run pre-commit run --all-files
 ## Testing
 
 - Use `ErrorCode` enums and `ValidationManifest` in tests, not string matching on error messages
-- Skip slow ontology tests by default; use `--run-ontology` to include them
+- Tests marked `ontology` are skipped when the OLS dependencies (the `ontology` extra) aren't installed
 
 ## Auto-generated Files
 
